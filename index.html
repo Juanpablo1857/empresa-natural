@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AL NATURAL · Inventario y Ventas</title>
+<meta name="description" content="Sistema de producción, inventario y ventas de AL NATURAL · Hecho en Casa.">
+<meta name="theme-color" content="#2f7d4f">
+<link rel="icon" type="image/svg+xml" href="icon.svg"><link rel="icon" type="image/png" sizes="32x32" href="icon-32.png"><link rel="shortcut icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="manifest" href="manifest.webmanifest">
+<meta property="og:type" content="website"><meta property="og:site_name" content="AL NATURAL"><meta property="og:title" content="AL NATURAL · Inventario y Ventas">
+<meta property="og:description" content="Producción, inventario, ventas e insumos en un solo lugar."><meta property="og:image" content="icon-512.png"><meta name="twitter:card" content="summary">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f8f4;--card:#fff;--tx:#1d2a1f;--mu:#667a69;--ac:#2f7d4f;--ac2:#e8f3ec;--bd:#dde6df;--wa:#d9423a;--wn:#c98a12}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121a14;--card:#1b261e;--tx:#e7efe8;--mu:#93a796;--ac:#5fc08a;--ac2:#243a2b;--bd:#2c3d31;--wa:#ff7a72;--wn:#e8b44a}}
+:root[data-theme="dark"]{--bg:#121a14;--card:#1b261e;--tx:#e7efe8;--mu:#93a796;--ac:#5fc08a;--ac2:#243a2b;--bd:#2c3d31;--wa:#ff7a72;--wn:#e8b44a}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+.w{max-width:1000px;margin:0 auto;padding:16px}h1{font-size:20px;margin:0}h2{font-size:16px;margin:0 0 10px}
+nav{display:flex;gap:6px;overflow-x:auto;margin:14px 0}nav button{white-space:nowrap}
+button,.b{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px;border-radius:8px;cursor:pointer;text-decoration:none;display:inline-block}
+button.on,button.p,.b.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+.k{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.k div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}.k b{display:block;font-size:20px}.k span{color:var(--mu);font-size:13px}
+input,select,textarea{font:inherit;padding:7px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);max-width:100%}
+.r{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
+.t{overflow-x:auto}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{color:var(--mu);font-size:12px}
+td input{width:70px;padding:4px}.tag{padding:2px 8px;border-radius:99px;font-size:12px;background:var(--ac2);color:var(--ac)}
+.tag.a{background:#fde7e5;color:var(--wa)}.tag.m{background:#fbf0d6;color:var(--wn)}
+.al{padding:7px 10px;border-left:4px solid var(--wa);background:var(--bg);border-radius:6px;margin-bottom:5px}.al.m{border-color:var(--wn)}.al.i{border-color:var(--mu)}
+.bar{height:10px;background:var(--ac);border-radius:5px}.mu{color:var(--mu);font-size:13px}
+</style></head><body><div class="w">
+<h1>🌿 AL NATURAL · Hecho en Casa</h1><div class="mu">Producción, inventario, ventas e insumos en un solo sistema</div>
+<div class="r" style="margin-top:10px"><button class="p" onclick="exportX()">💾 Guardar todo en Excel</button><span id="sv" class="mu"></span></div>
+<nav id="nav"></nav><div id="v"></div></div>
+<script>
+const TABS=[["panel","Panel"],["gra","Gráficos"],["rev","Revisión"],["prods","Productos"],["ven","Ventas"],["pro","Producción"],["sup","Insumos"],["imp","Importar Excel"],["con","Conexiones"]];
+const MES=["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+const K="aln_v2";let tab="panel",cart=[],q="",ed=null,RV=[],gper="m";
+let S={prods:[],prod:[],sales:[],sup:[],cfg:{phone:"",hook:""}};
+try{const x=localStorage.getItem(K);if(x)S=Object.assign(S,JSON.parse(x))}catch(e){}
+let noDirty=false;const save=()=>{if(!noDirty&&S.cfg)S.cfg.dirty=1;try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"");
+const key=(n,s)=>norm(n)+"|"+norm(s);
+const today=()=>new Date().toISOString().slice(0,10);
+const money=n=>(n<0?"-":"")+"$"+Math.round(Math.abs(n)).toLocaleString("es-CO");
+const nm=p=>p.n+" "+p.sz;
+const P=k=>S.prods.find(p=>p.k===k);
+const dd=(a,b)=>Math.floor((new Date(b)-new Date(a))/864e5);
+const refDate=()=>S.sales.reduce((m,s)=>s.date>m?s.date:m,"2000-01-01")||today();
+function alerts(){const a=[],ref=refDate(),last={},sold={};
+ S.sales.forEach(s=>{sold[s.k]=(sold[s.k]||0)+s.qty;if(!last[s.k]||s.date>last[s.k])last[s.k]=s.date});
+ S.prods.forEach(p=>{
+  if(p.stock<0){}
+  else if(p.stock===0&&sold[p.k])a.push({t:"a",m:`${nm(p)}: AGOTADO.`});
+  else if(p.stock>0&&p.stock<=p.min)a.push({t:"a",m:`${nm(p)}: quedan ${p.stock} (mínimo ${p.min}). Conviene producir.`});
+  else if(p.stock>=5&&S.sales.length&&(!last[p.k]||dd(last[p.k],ref)>90))a.push({t:"m",m:`${nm(p)}: ${p.stock} en bodega y sin ventas hace ${last[p.k]?dd(last[p.k],ref)+" días":"mucho tiempo"}.`});});
+ S.sup.forEach(s=>{if(s.stock<=s.min)a.push({t:"a",m:`Insumo ${s.n}${s.sz?" "+s.sz:""}: quedan ${s.stock} (mínimo ${s.min}). Comprar.`})});
+ return a.sort((x,y)=>x.t<y.t?-1:1)}
+function render(){if(ed&&ed[0]!==({prods:"p",ven:"s",pro:"g",sup:"u"})[tab])ed=null;$("#nav").innerHTML=TABS.map(([k,n])=>`<button class="${k===tab?"on":""}" onclick="tab='${k}';render()">${n}${k==="rev"&&nIss()?" ("+nIss()+")":""}</button>`).join("");
+ $("#v").innerHTML=({panel,gra,rev,prods,ven,pro,sup,imp,con})[tab]();sv0()}
+const cost=s=>{const p=P(s.k);return p?p.cost*s.qty:0};
+function welcome(){return `<div class="c"><h2>👋 Bienvenida</h2><div class="mu">El sistema está vacío y listo para usar. Tus datos se guardan en este equipo.</div>
+ <div class="r" style="margin-top:10px"><b>1.</b> Si ya tienes tu Excel: <button class="p" onclick="tab='imp';render()">Importar mi Excel</button></div>
+ <div class="r"><b>2.</b> Si empiezas de cero: <button onclick="tab='prods';render()">Agregar mis productos</button></div>
+ <div class="r"><b>3.</b> Luego registra <button onclick="tab='pro';render()">Producción</button> y <button onclick="tab='ven';render()">Ventas</button>: el inventario se actualiza solo.</div>
+ <div class="r"><b>4.</b> Al terminar el día pulsa <b>«Guardar todo en Excel»</b>, arriba.</div></div>`}
+function panel(){if(!S.prods.length&&!S.sales.length)return welcome();
+ const al=alerts(),M={},C={},T={};let tot=0,ut=0;
+ S.sales.forEach(s=>{const m=s.date.slice(0,7);M[m]=(M[m]||0)+s.total;C[s.ch]=(C[s.ch]||0)+s.total;T[s.k]=(T[s.k]||0)+s.qty;tot+=s.total;ut+=s.total-cost(s)});
+ const ms=Object.keys(M).sort().slice(-12),mx=Math.max(1,...ms.map(m=>M[m]));
+ const top=Object.entries(T).sort((a,b)=>b[1]-a[1]).slice(0,6),tm=top[0]?top[0][1]:1;
+ const chs=Object.entries(C).sort((a,b)=>b[1]-a[1]).slice(0,6);
+ const inv=S.prods.reduce((a,p)=>a+Math.max(0,p.stock)*p.price,0);
+ return `<div class="k"><div><b>${S.prods.length}</b><span>Productos</span></div><div><b>${money(inv)}</b><span>Inventario a precio de venta</span></div>
+ <div><b>${money(tot)}</b><span>Ventas registradas</span></div><div><b>${money(ut)}</b><span>Utilidad estimada</span></div><div><b>${al.length}</b><span>Alertas</span></div></div>
+ ${nIss()?`<div class="al"><b>${nIss()}</b> puntos por revisar en tus datos. <button onclick="tab='rev';render()">Ver revisión</button></div>`:""}${infos().length?`<div class="al i"><b>${infos().length}</b> productos se vendieron más de lo que hay anotado como producido. No es un error: falta anotar producción. <button onclick="tab='rev';render()">Ver</button></div>`:""}${planCard()}${autoCard()}<div class="c"><h2>Alertas</h2>${al.length?al.slice(0,40).map(x=>`<div class="al ${x.t}">${esc(x.m)}</div>`).join("")+(al.length>40?`<div class="mu">y ${al.length-40} más…</div>`:""):'<span class="mu">Sin alertas. Importa tu Excel para empezar.</span>'}</div>
+ <div class="c"><h2>Ventas por mes</h2>${ms.map(m=>`<div class="r"><span style="width:70px">${m}</span><div style="flex:1;min-width:80px"><div class="bar" style="width:${M[m]/mx*100}%"></div></div><b>${money(M[m])}</b></div>`).join("")||'<span class="mu">Sin ventas.</span>'}</div>
+ <div class="c"><h2>Productos más vendidos (unidades)</h2>${top.map(([k,v])=>`<div class="r"><span style="width:230px;overflow:hidden">${esc(P(k)?nm(P(k)):k)}</span><div style="flex:1;min-width:60px"><div class="bar" style="width:${v/tm*100}%"></div></div><b>${v}</b></div>`).join("")||'<span class="mu">Sin datos.</span>'}</div>
+ <div class="c"><h2>Ventas por canal / punto de venta</h2>${chs.map(([c,v])=>`<div class="r"><span style="flex:1">${esc(c)}</span><b>${money(v)}</b></div>`).join("")||'<span class="mu">Sin datos.</span>'}</div>`}
+function prods(){const ei=ed&&ed[0]==="p"?+ed.slice(2):-1,e=ei>=0?S.prods[ei]:null,L=S.prods.map((p,i)=>({p,i})).filter(x=>norm(nm(x.p)).includes(norm(q)));
+ return `<div class="c"><h2>${e?"Editar producto":"Nuevo producto"}</h2><div class="r"><input id="n1" placeholder="Producto" value="${esc(e?e.n:"")}"><input id="n2" placeholder="Tamaño (130 ML)" style="width:120px" value="${esc(e?e.sz:"")}">
+ <input id="n3" type="number" placeholder="Precio" style="width:90px" value="${e?e.price:""}"><input id="n4" type="number" placeholder="Costo" style="width:90px" value="${e?e.cost:""}"><input id="n5" type="number" placeholder="Stock" style="width:80px" value="${e?e.stock:""}"><input id="n6" type="number" placeholder="Mínimo" style="width:80px" value="${e?e.min:""}">
+ <button class="p" onclick="newP()">${e?"Guardar cambios":"Guardar producto"}</button>${e?'<button onclick="ed=null;render()">Cancelar</button>':""}</div></div>
+ <div class="c"><div class="r"><h2 style="margin:0;flex:1">Inventario de productos</h2><input id="qs" placeholder="Buscar…" value="${esc(q)}" oninput="q=this.value;render();const x=$('#qs');x.focus();x.setSelectionRange(q.length,q.length)" style="width:160px"></div>
+ <div class="t"><table><tr><th>Producto</th><th>Precio</th><th>Costo</th><th>Margen</th><th>Stock</th><th>Mínimo</th><th>Estado</th><th></th></tr>
+ ${L.slice(0,200).map(({p,i})=>`<tr><td>${esc(nm(p))}</td><td>${money(p.price)}</td><td>${money(p.cost)}</td><td>${p.price?Math.round((p.price-p.cost)/p.price*100):0}%</td>
+ <td><input type="number" value="${p.stock}" onchange="setP(${i},'stock',this.value)"></td><td><input type="number" value="${p.min}" onchange="setP(${i},'min',this.value)"></td>
+ <td>${p.stock<0?'<span class="tag">Falta anotar producción</span>':p.stock<=p.min?'<span class="tag m">Bajo</span>':'<span class="tag">OK</span>'}</td>
+ <td><button onclick="ed='p:${i}';render();scrollTo(0,0)">Editar</button> <button onclick="delP(${i})">Eliminar</button></td></tr>`).join("")||'<tr><td colspan=8 class="mu">Sin productos</td></tr>'}</table></div>
+ <div class="mu">Cambiar el stock en la tabla equivale a un conteo físico. Se guarda automáticamente.</div></div>`}
+function newP(){const n=$("#n1").value.trim();if(!n){toast("Escribe el nombre del producto");return}
+ const sz=$("#n2").value.trim(),k=key(n,sz),d={k,n,sz,price:+$("#n3").value||0,cost:+$("#n4").value||0,stock:+$("#n5").value||0,min:$("#n6").value===""?3:+$("#n6").value},i=ed&&ed[0]==="p"?+ed.slice(2):-1;
+ if(S.prods.some((p,j)=>p.k===k&&j!==i)){toast("Ya existe un producto con ese nombre y tamaño. Edítalo en la lista.");return}
+ let ren=false,oldK="";if(i>=0){const old=S.prods[i].k;oldK=old;if(old!==k){ren=true;S.sales.forEach(s=>{if(s.k===old)s.k=k});S.prod.forEach(s=>{if(s.k===old)s.k=k});cart.forEach(l=>{if(l.k===old)l.k=k})}S.prods[i]=d}else S.prods.push(d);
+ fixed(k);if(oldK)fixed(oldK);ed=null;save();ren?syncAll():syncInv();toast("✓ Guardado");render()}
+function setP(i,f,v){S.prods[i][f]=+v||0;if(f==="stock")fixed(S.prods[i].k);save();syncInv();render()}
+function askC(msg,yes,label){const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:99;padding:16px";
+ d.innerHTML=`<div class="c" style="max-width:440px;margin:0"><div style="margin-bottom:14px">${esc(msg)}</div><div class="r" style="justify-content:flex-end;margin:0"><button id="dn">Cancelar</button><button class="p" id="dy">${esc(label||"Aceptar")}</button></div></div>`;
+ document.body.appendChild(d);d.querySelector("#dn").onclick=()=>d.remove();d.querySelector("#dy").onclick=()=>{d.remove();yes()}}
+function delP(i){const p=S.prods[i];askC(`¿Eliminar "${nm(p)}"? Sus ventas y producción anteriores se conservan en el historial.`,()=>{S.prods.splice(i,1);fixed(p.k);cart=cart.filter(l=>P(l.k));ed=null;save();syncInv();toast("✓ Eliminado");render()},"Eliminar")}
+function borrarTodo(){askC("Se borrarán todos los productos, ventas, producción e insumos de este equipo y la página quedará vacía y limpia. Las conexiones (WhatsApp y Make) se conservan. Si no guardaste un Excel, estos datos se pierden. ¿Borrar todo?",()=>{
+ S={prods:[],prod:[],sales:[],sup:[],issues:[],cfg:{phone:S.cfg.phone||"",hook:S.cfg.hook||"",gs:S.cfg.gs||""}};cart=[];ed=null;q="";tab="panel";noDirty=true;save();noDirty=false;render();toast("✓ Página limpia")},"Sí, borrar todo")}
+const toast=t=>{const e=$("#sv");if(e){e.textContent=t;setTimeout(sv0,2500)}};
+const syncAll=()=>hook("todo",tables());
+const pl=k=>P(k)?nm(P(k)):k,hist=s=>String(s.ch||"").startsWith("Histórico");
+function saveS(i){const s=S.sales[i],p=P(s.k),q=+$("#e3").value;if(!(q>0)){toast("Cantidad inválida");return}
+ let t=+$("#e4").value||0;if(t===Math.round(s.total)&&q!==s.qty)t=s.total/s.qty*q;
+ if(p&&!hist(s))p.stock+=s.qty-q;s.date=$("#e1").value||s.date;s.ch=$("#e2").value.trim()||s.ch;s.qty=q;s.total=t;ed=null;save();syncAll();toast("✓ Guardado");render()}
+function delS(i){const s=S.sales[i],p=P(s.k),adj=p&&!hist(s);askC("¿Eliminar esta venta?"+(adj?" Las unidades vuelven al inventario.":""),()=>{if(adj)p.stock+=s.qty;S.sales.splice(i,1);ed=null;save();syncAll();toast("✓ Eliminado");render()},"Eliminar")}
+function saveG(i){const s=S.prod[i],p=P(s.k),q=+$("#e3").value;if(!(q>0)){toast("Cantidad inválida");return}
+ if(p&&!s.h)p.stock+=q-s.qty;s.date=$("#e1").value||s.date;s.qty=q;ed=null;save();syncAll();toast("✓ Guardado");render()}
+function delG(i){const s=S.prod[i],p=P(s.k),adj=p&&!s.h;askC("¿Eliminar este registro de producción?"+(adj?" Se descuenta del inventario.":""),()=>{if(adj)p.stock-=s.qty;S.prod.splice(i,1);ed=null;save();syncAll();toast("✓ Eliminado");render()},"Eliminar")}
+function saveU(){const n=$("#u1").value.trim();if(!n){toast("Escribe el nombre");return}const ty=$("#u3").value,
+ d={n,sz:$("#u2").value.trim(),type:ty,stock:+$("#u4").value||0,cost:+$("#u5").value||0,min:$("#u6").value===""?(ty==="Envase"?20:1):+$("#u6").value},i=ed&&ed[0]==="u"?+ed.slice(2):-1;
+ if(i>=0)S.sup[i]=d;else S.sup.push(d);ed=null;save();syncInv();toast("✓ Guardado");render()}
+function delU(i){askC(`¿Eliminar "${S.sup[i].n}"?`,()=>{S.sup.splice(i,1);ed=null;save();syncInv();toast("✓ Eliminado");render()},"Eliminar")}
+const opts=()=>S.prods.map(p=>`<option value="${p.k}">${esc(nm(p))}</option>`).join("");
+function ven(){const sub=cart.reduce((a,l)=>a+l.q*P(l.k).price,0),eI=ed&&ed[0]==="s"?+ed.slice(2):-1,
+ R=S.sales.map((s,i)=>({s,i})).sort((a,b)=>b.s.date.localeCompare(a.s.date)||b.i-a.i).slice(0,60);
+ return `<div class="c"><h2>Registrar venta</h2><div class="r"><select id="vp">${opts()}</select><input id="vq" type="number" min="1" value="1" style="width:80px"><button onclick="addL()">Agregar</button></div>
+ ${cart.map((l,i)=>`<div class="r"><span style="flex:1">${esc(nm(P(l.k)))} × ${l.q}</span><b>${money(l.q*P(l.k).price)}</b><button onclick="cart.splice(${i},1);render()">Quitar</button></div>`).join("")}
+ <div class="r"><input id="vd" type="date" value="${today()}"><input id="vc" list="chs" placeholder="Canal / punto (Domicilio, Park 33…)" style="width:240px">
+ <datalist id="chs">${[...new Set(S.sales.map(s=>s.ch))].map(c=>`<option>${esc(c)}</option>`).join("")}</datalist>
+ <input id="vx" type="number" placeholder="Descuento %" style="width:110px"><b>${money(sub)}</b><button class="p" onclick="regS()">Registrar venta</button></div>
+ <div class="mu">Cada venta descuenta el stock y se guarda en Google Sheets si está conectado.</div></div>
+ <div class="c"><h2>Últimas ventas</h2><div class="t"><table><tr><th>Fecha</th><th>Canal</th><th>Producto</th><th>Cant.</th><th>Total</th><th></th></tr>
+ ${R.map(({s,i})=>i===eI?`<tr><td><input id="e1" type="date" value="${s.date}" style="width:140px"></td><td><input id="e2" value="${esc(s.ch)}" style="width:130px"></td><td>${esc(pl(s.k))}</td><td><input id="e3" type="number" value="${s.qty}"></td><td><input id="e4" type="number" value="${Math.round(s.total)}" style="width:90px"></td><td><button class="p" onclick="saveS(${i})">Guardar</button> <button onclick="ed=null;render()">Cancelar</button></td></tr>`
+ :`<tr><td>${s.date}</td><td>${esc(s.ch)}</td><td>${esc(pl(s.k))}</td><td>${s.qty}</td><td>${money(s.total)}</td><td><button onclick="ed='s:${i}';render()">Editar</button> <button onclick="delS(${i})">Eliminar</button></td></tr>`).join("")||'<tr><td colspan=6 class="mu">Sin ventas</td></tr>'}</table></div></div>`}
+function addL(){const k=$("#vp").value,n=+$("#vq").value;if(!k||n<=0)return;const l=cart.find(x=>x.k===k);l?l.q+=n:cart.push({k,q:n});render()}
+function regS(){if(!cart.length)return;const d=$("#vd").value||today(),ch=$("#vc").value.trim()||"Sin canal",x=+$("#vx").value||0,out=[];
+ cart.forEach(l=>{const p=P(l.k);p.stock-=l.q;const s={date:d,ch,k:l.k,qty:l.q,total:l.q*p.price*(1-x/100)};S.sales.push(s);out.push({producto:p.n,tamano:p.sz,cantidad:l.q,total:s.total,stock_restante:p.stock})});
+ cart=[];save();hook("venta",{fecha:d,canal:ch,items:out});render();if(out.some(o=>o.stock_restante<0))toast("Venta anotada. Se vendió más de lo producido: falta anotar producción.")}
+function pro(){const eI=ed&&ed[0]==="g"?+ed.slice(2):-1,R=S.prod.map((s,i)=>({s,i})).sort((a,b)=>b.s.date.localeCompare(a.s.date)||b.i-a.i).slice(0,60);
+ return `<div class="c"><h2>Registrar producción</h2><div class="r"><select id="gp">${opts()}</select><input id="gq" type="number" placeholder="Unidades" style="width:100px"><input id="gd" type="date" value="${today()}"><button class="p" onclick="regP()">Sumar al inventario</button></div></div>
+ <div class="c"><h2>Producción reciente</h2><div class="t"><table><tr><th>Fecha</th><th>Producto</th><th>Unidades</th><th></th></tr>
+ ${R.map(({s,i})=>i===eI?`<tr><td><input id="e1" type="date" value="${s.date}" style="width:140px"></td><td>${esc(pl(s.k))}</td><td><input id="e3" type="number" value="${s.qty}"></td><td><button class="p" onclick="saveG(${i})">Guardar</button> <button onclick="ed=null;render()">Cancelar</button></td></tr>`
+ :`<tr><td>${s.date}</td><td>${esc(pl(s.k))}</td><td>${s.qty}</td><td><button onclick="ed='g:${i}';render()">Editar</button> <button onclick="delG(${i})">Eliminar</button></td></tr>`).join("")||'<tr><td colspan=4 class="mu">Sin producción</td></tr>'}</table></div></div>`}
+function regP(){const p=P($("#gp").value),n=+$("#gq").value;if(!p||n<=0)return;p.stock+=n;fixed(p.k);S.prod.push({date:$("#gd").value||today(),k:p.k,qty:n});save();hook("produccion",{fecha:S.prod[S.prod.length-1].date,producto:p.n,tamano:p.sz,cantidad:n,stock:p.stock});render()}
+function sup(){const ei=ed&&ed[0]==="u"?+ed.slice(2):-1,e=ei>=0?S.sup[ei]:null,ins=e&&e.type==="Insumo";
+ return `<div class="c"><h2>${e?"Editar ítem":"Nuevo envase o insumo"}</h2><div class="r"><input id="u1" placeholder="Nombre" value="${esc(e?e.n:"")}"><input id="u2" placeholder="Detalle (35 ML)" style="width:120px" value="${esc(e?e.sz:"")}">
+ <select id="u3"><option${ins?"":" selected"}>Envase</option><option${ins?" selected":""}>Insumo</option></select>
+ <input id="u4" type="number" placeholder="Cantidad" style="width:90px" value="${e?e.stock:""}"><input id="u5" type="number" placeholder="Costo unit." style="width:100px" value="${e?e.cost:""}"><input id="u6" type="number" placeholder="Mínimo" style="width:80px" value="${e?e.min:""}">
+ <button class="p" onclick="saveU()">${e?"Guardar cambios":"Guardar"}</button>${e?'<button onclick="ed=null;render()">Cancelar</button>':""}</div></div>
+ <div class="c"><h2>Envases e insumos</h2><div class="t"><table><tr><th>Ítem</th><th>Tipo</th><th>Cantidad</th><th>Costo unit.</th><th>Mínimo</th><th>Estado</th><th></th></tr>
+ ${S.sup.map((s,i)=>`<tr><td>${esc(s.n)} ${esc(s.sz||"")}</td><td>${s.type}</td><td><input type="number" value="${s.stock}" onchange="S.sup[${i}].stock=+this.value;save();syncInv();render()"></td><td>${money(s.cost)}</td>
+ <td><input type="number" value="${s.min}" onchange="S.sup[${i}].min=+this.value;save();syncInv();render()"></td><td>${s.stock<=s.min?'<span class="tag a">Comprar</span>':'<span class="tag">OK</span>'}</td>
+ <td><button onclick="ed='u:${i}';render();scrollTo(0,0)">Editar</button> <button onclick="delU(${i})">Eliminar</button></td></tr>`).join("")||'<tr><td colspan=7 class="mu">Agrega ítems o importa tu Excel</td></tr>'}</table></div>
+ <div class="mu">Actualiza la cantidad cuando compres o gastes envases e insumos.</div></div>`}
+function imp(){return `<div class="c"><h2>Cargar tu Excel actual</h2><div class="mu">Sube el archivo con las hojas INV, TOTAL y los meses (ENE a DIC). Se cargan productos, precios, costos, stock actual, producción, ventas por mes, envases e insumos. El stock se recalcula como producción total menos unidades vendidas de cada producto. Reemplaza lo que haya en el sistema.<br>También sirve para <b>volver a importar</b> el Excel que bajaste con «Guardar todo en Excel» después de corregirlo en el computador. Al cargar, el sistema revisa el archivo y te muestra los errores en la pestaña <b>Revisión</b>.</div>
+ <div class="r" style="margin-top:10px"><input type="file" accept=".xlsx,.xlsm" onchange="fileImp(event)"></div><div id="im" class="mu"></div></div>`}
+function fileImp(e){const f=e.target.files[0];if(!f)return;const go=()=>{const r=new FileReader();r.onload=ev=>{try{importBook(XLSX.read(ev.target.result,{type:"array"}))}catch(x){$("#im").textContent="No se pudo leer el archivo: "+x.message}};r.readAsArrayBuffer(f)};
+ if(S.prods.length)askC("Esto reemplaza los datos actuales por los del archivo. ¿Continuar?",go,"Continuar");else go()}
+function scanBook(wb){const out=[];let n=0;
+ for(const sn of wb.SheetNames){const ws=wb.Sheets[sn];if(!ws)continue;
+  for(const a in ws){if(a[0]==="!")continue;const c=ws[a];if(c&&c.t==="e"){n++;if(out.length<60)out.push({t:"a",cell:1,m:`Error de Excel (${c.w||"#ERROR"}) en la hoja ${sn}, celda ${a}. Corrígelo en el Excel y vuelve a importar.`})}}}
+ if(n>60)out.push({t:"a",cell:1,m:`Hay ${n} celdas con error en total; se muestran las primeras 60.`});return out}
+function checkRows(wb){const out=[],num={Productos:["Precio","Costo","Stock","Mínimo"],Ventas:["Cantidad","Total"],"Producción":["Unidades"],Insumos:["Cantidad","Costo","Mínimo"]};
+ for(const sn in num){if(!wb.Sheets[sn])continue;XLSX.utils.sheet_to_json(wb.Sheets[sn]).forEach((r,i)=>num[sn].forEach(c=>{const v=r[c];if(v!==undefined&&v!==""&&isNaN(+String(v).replace(",",".")))out.push({t:"a",k:sn==="Productos"?key(r.Producto,String(r["Tamaño"]??"")):undefined,m:`Hoja ${sn}, fila ${i+2}, columna ${c}: "${v}" no es un número.`})}))}
+ return out.slice(0,60)}
+function importBook(wb){
+ const ws0=n=>wb.Sheets[n];
+ if(!ws0("INV")&&ws0("Productos")){const is=[...scanBook(wb),...checkRows(wb)];S=restore(wb);S.issues=is;save();const tot=is.length+liveChecks().length;
+  $("#im").innerHTML=`✓ Copia cargada: <b>${S.prods.length}</b> productos y <b>${S.sales.length}</b> ventas. Puntos por revisar: <b>${tot}</b>.`;setTimeout(()=>{tab=tot?"rev":"panel";render()},1500);return}
+ if(!ws0("INV"))throw new Error("no encuentro la hoja INV");
+ const g=(ws,r,c)=>{const x=ws[XLSX.utils.encode_cell({r:r-1,c:c-1})];return x?x.v:undefined};
+ const end=ws=>XLSX.utils.decode_range(ws["!ref"]).e.r+1,isS=v=>typeof v==="string"&&v.trim();
+ const D={prods:[],prod:[],sales:[],sup:[],issues:[],cfg:S.cfg},costs={},sold={},xl={},year=(ws0("ENE")&&String(g(ws0("ENE"),1,1)).match(/\d{4}/)||[2025])[0];
+ const T=ws0("TOTAL");if(T)for(let r=5;r<=end(T);r++){const n=g(T,r,1);if(!isS(n)||/^total/i.test(n))break;costs[key(n,g(T,r,2))]=+g(T,r,6)||0}
+ const I=ws0("INV");
+ for(let r=4;r<=end(I);r++){const n=g(I,r,2);if(!isS(n))continue;const sz=String(g(I,r,3)||""),k=key(n,sz);
+  if(D.prods.some(p=>p.k===k))D.issues.push({t:"m",k,m:`INV fila ${r}: "${n.trim()} ${sz}" está repetido en la hoja INV.`});
+  D.prods.push({k,n:n.trim(),sz,price:+g(I,r,4)||0,cost:costs[k]||0,stock:+g(I,r,31)||0,min:3});
+  const fx=I[XLSX.utils.encode_cell({r:r-1,c:32})];let cause="";
+  if(!fx||fx.f===undefined)cause=`la celda AG${r} no tiene fórmula de stock`;
+  else{const mt=/TOTAL!\$?D\$?(\d+)/.exec(fx.f);if(!mt)cause=`la fórmula de AG${r} no está enlazada con la hoja TOTAL`;else if(T&&key(g(T,+mt[1],1),g(T,+mt[1],2))!==k)cause=`la fórmula de AG${r} resta las ventas de "${g(T,+mt[1],1)} ${g(T,+mt[1],2)}" (TOTAL fila ${mt[1]})`}
+  xl[k]={cause,st:g(I,r,33)};
+  for(let m=0;m<12;m++){const v=g(I,r,7+2*m);
+   if(typeof v==="string"&&v.trim()&&isNaN(+v))D.issues.push({t:"a",k,m:`Hoja INV, celda ${XLSX.utils.encode_cell({r:r-1,c:6+2*m})}: "${v}" no es un número (producción de ${MES[m]}).`});
+   const q=+v;if(q>0)D.prod.push({date:`${year}-${String(m+1).padStart(2,"0")}-15`,k,qty:q,h:1})}}
+ for(let r=4;r<=30;r++){const a=g(I,r,35),b=g(I,r,40);
+  if(isS(a)&&!/^(total|caja)/i.test(a)&&typeof g(I,r,36)==="number")D.sup.push({n:a.trim(),sz:"",type:"Envase",stock:g(I,r,36),cost:+g(I,r,37)||0,min:20});
+  if(isS(b)&&!/^total/i.test(b)&&typeof g(I,r,42)==="number")D.sup.push({n:b.trim(),sz:String(g(I,r,41)||""),type:"Insumo",stock:g(I,r,42),cost:+g(I,r,43)||0,min:1})}
+ MES.forEach((mn,m)=>{const ws=ws0(mn);if(!ws)return;let cu=0;for(let c=1;c<=30;c++)if(g(ws,3,c)==="TOTAL UNI"){cu=c;break}if(!cu)return;
+  for(let r=5;r<=end(ws);r++){const n=g(ws,r,1);if(!isS(n)||/^total/i.test(n))break;const sz=String(g(ws,r,2)||""),k=key(n,sz),u=+g(ws,r,cu)||0;
+   if(!D.prods.find(p=>p.k===k)){D.prods.push({k,n:n.trim(),sz,price:+g(ws,r,3)||0,cost:+g(ws,r,cu+2)||0,stock:0,min:3});D.issues.push({t:"m",k,m:`"${n.trim()} ${sz}" aparece en las ventas (${mn}) pero no en la hoja INV. Revisa si el nombre está escrito distinto.`})}
+   if(u>0)sold[k]=(sold[k]||0)+u;if(u>0)D.sales.push({date:`${year}-${String(m+1).padStart(2,"0")}-15`,ch:"Histórico "+mn,k,qty:u,total:+g(ws,r,cu+1)||u*(+g(ws,r,3)||0)})}});
+ D.prods.forEach(p=>{p.stock-=sold[p.k]||0});
+ D.prods.forEach(p=>{const x=xl[p.k];if(x&&(x.cause||(typeof x.st==="number"&&x.st!==p.stock)))D.issues.push({t:"m",diff:1,k:p.k,m:`${nm(p)}: el Excel dice ${typeof x.st==="number"?x.st:"vacío"} y el sistema calcula ${p.stock} (producción − ventas, por nombre de producto).${x.cause?" Probable causa: "+x.cause+".":""}`})});
+ D.issues=[...scanBook(wb),...D.issues];S=D;save();const tot=D.issues.length+liveChecks().length;
+ $("#im").innerHTML=`✓ Cargado: <b>${D.prods.length}</b> productos, <b>${D.sales.length}</b> registros de ventas, <b>${D.prod.length}</b> de producción y <b>${D.sup.length}</b> envases/insumos. Puntos por revisar: <b>${tot}</b>.`;setTimeout(()=>{tab=tot?"rev":"panel";render()},1800)}
+function con(){const al=alerts().slice(0,15).map(a=>"• "+a.m).join("\n")||"Sin alertas",msg="🌿 AL NATURAL – Alertas de hoy:\n"+al,ph=S.cfg.phone.replace(/\D/g,""),on=!!S.cfg.hook;
+ return `<div class="c"><h2>Conexiones</h2><div class="mu">Tu sistema <b>ya funciona sin conectar nada</b>: guarda todo en este equipo y se respalda con el botón «Guardar todo en Excel». Las conexiones son opcionales y sirven para dos cosas: recibir alertas por WhatsApp y que cada registro se guarde solo en Google Sheets y Airtable.</div></div>
+ <div class="c"><h2>1. Alertas por WhatsApp</h2><div class="mu">Escribe el número que recibirá las alertas, con el indicativo del país y sin signos. Ejemplo en Colombia: 573001234567.</div>
+ <div class="r" style="margin-top:8px"><input placeholder="573001234567" value="${esc(S.cfg.phone)}" style="width:220px" onchange="S.cfg.phone=this.value;save();render()"></div>
+ <pre style="white-space:pre-wrap;background:var(--bg);padding:10px;border-radius:8px;font-size:13px">${esc(msg)}</pre>
+ <a class="b p" target="_blank" rel="noopener" href="https://wa.me/${ph}?text=${encodeURIComponent(msg)}">Enviar alertas por WhatsApp</a>
+ <div class="mu" style="margin-top:6px">Se abre WhatsApp con el mensaje ya escrito; solo pulsas enviar.</div></div>
+ <div class="c"><div class="r"><h2 style="margin:0;flex:1">2. Guardar solo en Google Sheets y Airtable</h2><span class="tag ${on?"":"m"}">${on?"Conectado":"Sin conectar"}</span></div>
+ <div class="mu">Opcional. Se hace una sola vez en make.com, sin escribir código:</div>
+ <ol class="mu" style="margin:8px 0 8px 18px;padding:0"><li>En make.com crea un escenario nuevo, agrega el módulo <b>Webhooks</b> y elige <b>Custom webhook</b>. Pulsa <b>Add</b> y copia la dirección (URL) que te muestra.</li><li>Pégala aquí abajo y pulsa <b>Enviar prueba</b>.</li><li>En Make agrega después el módulo <b>Google Sheets</b> (Add a Row) y/o <b>Airtable</b> (Create a Record) y une cada campo. Activa el escenario.</li></ol>
+ <div class="r"><input placeholder="Pega aquí la URL de Make" value="${esc(S.cfg.hook)}" style="flex:1;min-width:220px" onchange="S.cfg.hook=this.value.trim();save();render()"><button onclick="hook('prueba',{},1)">Enviar prueba</button></div><div id="hm" class="mu"></div>
+ <div class="mu">Cuando ya funcione, pulsa el botón de abajo y envíale ese enlace a la dueña: al abrirlo, su página queda conectada sin que ella haga nada.</div>
+ <div class="r" style="margin-top:6px"><button onclick="shareCfg()">Copiar enlace ya configurado</button></div></div>
+ <div class="c"><h2>3. Pasar los datos a mano a Excel, Google Sheets o Airtable</h2><div class="mu">Pulsa un botón y pega con Ctrl+V en la hoja.</div>
+ <div class="r" style="margin-top:8px">${[["prods","Productos"],["sales","Ventas"],["prod","Producción"],["sup","Insumos"]].map(([k,n])=>`<button onclick="copyT('${k}')">Copiar ${n}</button>`).join("")}</div></div>
+ <div class="c"><h2>4. Respaldo</h2><div class="r"><button class="p" onclick="exportX()">💾 Guardar todo en Excel</button><button onclick="borrarTodo()">Borrar todo</button></div>
+ <div class="mu" style="margin-top:6px">Los datos viven en este equipo y navegador. Guarda un Excel cada semana.</div></div>`}
+function copyT(k){const R=(h,rows)=>h.join("\t")+"\n"+rows.map(r=>r.join("\t")).join("\n"),nmk=k=>P(k)?nm(P(k)):k;
+ const t={prods:()=>R(["Producto","Tamaño","Precio","Costo","Stock","Mínimo"],S.prods.map(p=>[p.n,p.sz,p.price,p.cost,p.stock,p.min])),
+ sales:()=>R(["Fecha","Canal","Producto","Cantidad","Total"],S.sales.map(s=>[s.date,s.ch,nmk(s.k),s.qty,s.total])),
+ prod:()=>R(["Fecha","Producto","Unidades"],S.prod.map(s=>[s.date,nmk(s.k),s.qty])),
+ sup:()=>R(["Ítem","Tipo","Cantidad","Costo","Mínimo"],S.sup.map(s=>[s.n+" "+s.sz,s.type,s.stock,s.cost,s.min]))}[k]();
+ const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast("✓ Copiado. Pégalo en Excel, Google Sheets o Airtable.")}catch(e){}a.remove()}
+async function hook(ev,data,show){const s=ev==="prueba"?$("#hm"):$("#hs"),say=t=>{if(show&&s)s.textContent=t};
+ if(!S.cfg.hook&&!S.cfg.gs){say("Pega primero la URL del webhook de Make.");return}
+ try{if(S.cfg.gs)await fetch(S.cfg.gs,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({evento:ev,...data})});
+  if(S.cfg.hook){const rows=ev==="venta"?data.items.map(i=>({evento:"venta",fecha:data.fecha,canal:data.canal,producto:i.producto,tamano:i.tamano,cantidad:i.cantidad,total:i.total,stock:i.stock_restante}))
+   :ev==="produccion"?[{evento:"produccion",fecha:data.fecha,canal:"",producto:data.producto,tamano:data.tamano,cantidad:data.cantidad,total:"",stock:data.stock}]
+   :ev==="prueba"?[{evento:"prueba",fecha:today(),canal:"Prueba",producto:"Producto de prueba",tamano:"35 ML",cantidad:1,total:1000,stock:10}]:[];
+   for(const r of rows)await fetch(S.cfg.hook,{method:"POST",mode:"no-cors",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams(r).toString()})}
+  S.cfg.sync=new Date().toLocaleString("es-CO");noDirty=true;save();noDirty=false;say("Enviado. Revisa en Make que llegó el dato.")}
+ catch(e){say("No se pudo enviar: esta página publicada bloquea conexiones externas. Aloja el archivo en tu propio hosting.")}}
+function restore(wb,o){const J=n=>o?(o[n]||[]):(wb.Sheets[n]?XLSX.utils.sheet_to_json(wb.Sheets[n]):[]),D={prods:[],prod:[],sales:[],sup:[],cfg:S.cfg,issues:[]},s=v=>String(v??"");
+ J("Productos").forEach(r=>{const n=s(r["Producto"]).trim();if(n)D.prods.push({k:key(n,s(r["Tamaño"])),n,sz:s(r["Tamaño"]),price:+r.Precio||0,cost:+r.Costo||0,stock:+r.Stock||0,min:+r["Mínimo"]||0})});
+ J("Ventas").forEach(r=>D.sales.push({date:s(r.Fecha),ch:s(r.Canal),k:key(r.Producto,s(r["Tamaño"])),qty:+r.Cantidad||0,total:+r.Total||0}));
+ J("Producción").forEach(r=>D.prod.push({date:s(r.Fecha),k:key(r.Producto,s(r["Tamaño"])),qty:+r.Unidades||0}));
+ J("Insumos").forEach(r=>D.sup.push({n:s(r["Ítem"]),sz:s(r.Detalle),type:s(r.Tipo),stock:+r.Cantidad||0,cost:+r.Costo||0,min:+r["Mínimo"]||0}));return D}
+async function exportX(){const st=$("#sv"),pn=k=>P(k)||{n:k,sz:""},wb=XLSX.utils.book_new(),add=(n,rows)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),n);
+ add("Productos",S.prods.map(p=>({Producto:p.n,"Tamaño":p.sz,Precio:p.price,Costo:p.cost,Stock:p.stock,"Mínimo":p.min})));
+ add("Ventas",S.sales.map(x=>({Fecha:x.date,Canal:x.ch,Producto:pn(x.k).n,"Tamaño":pn(x.k).sz,Cantidad:x.qty,Total:x.total})));
+ add("Producción",S.prod.map(x=>({Fecha:x.date,Producto:pn(x.k).n,"Tamaño":pn(x.k).sz,Unidades:x.qty})));
+ add("Insumos",S.sup.map(x=>({"Ítem":x.n,Detalle:x.sz,Tipo:x.type,Cantidad:x.stock,Costo:x.cost,"Mínimo":x.min})));
+ add("Alertas",alerts().map(a=>({Alerta:a.m})));{const rv=[...(S.issues||[]).filter(x=>!x.cell),...liveChecks()];if(rv.length)add("Revisión",rv.map(x=>({Tipo:x.t==="a"?"Error":"Aviso",Detalle:x.m})))}
+ const fn=`AL_NATURAL_registro_${today()}.xlsx`,dl=window.claude?await window.claude.use("downloads"):null;
+ try{if(dl)await dl.save({filename:fn,data:XLSX.write(wb,{bookType:"xlsx",type:"array"})});else XLSX.writeFile(wb,fn);
+  S.issues=(S.issues||[]).filter(x=>!x.cell);S.cfg.last=today();S.cfg.dirty=0;noDirty=true;save();noDirty=false;toast("✓ Excel guardado con los datos corregidos");render()}
+ catch(e){st.textContent=e&&e.code==="declined"?"Guardado cancelado.":"No se pudo guardar el archivo."}}
+const CW=640,CH=230,CL=50,CB=30,CT=14,COL=["#2f7d4f","#d9893a","#3f7fbf","#b04a8f","#8a9a2f","#c9533a","#6a6fb5","#7a8b84"];
+const nf=n=>Math.abs(n)>=1e6?(n/1e6).toFixed(1)+"M":Math.abs(n)>=1e3?Math.round(n/1e3)+"k":String(Math.round(n*10)/10);
+const nod=()=>'<div class="mu">Aún no hay datos para graficar. Importa tu Excel o registra ventas.</div>';
+function grid(mx){let s="";for(let i=0;i<=4;i++){const y=CT+(CH-CT-CB)*(1-i/4);s+=`<line x1="${CL}" x2="${CW-10}" y1="${y}" y2="${y}" stroke="var(--bd)"/><text x="${CL-6}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--mu)">${nf(mx*i/4)}</text>`}return s}
+function svgBar(lab,val,fmt){if(!lab.length||!Math.max(...val))return nod();const mx=Math.max(...val),bw=(CW-CL-10)/lab.length;
+ let s=`<svg viewBox="0 0 ${CW} ${CH}" width="100%">`+grid(mx);
+ val.forEach((v,i)=>{const hh=(CH-CT-CB)*v/mx,x=CL+i*bw+bw*.15;s+=`<rect x="${x}" y="${CH-CB-hh}" width="${bw*.7}" height="${hh}" rx="3" fill="var(--ac)"><title>${esc(lab[i])}: ${fmt(v)}</title></rect><text x="${x+bw*.35}" y="${CH-CB+14}" text-anchor="middle" font-size="10" fill="var(--mu)">${esc(lab[i])}</text>`});return s+"</svg>"}
+function svgLine(lab,ser){const mx=Math.max(0,...ser.flatMap(s=>s.v));if(!lab.length||!mx)return nod();const n=lab.length,X=i=>CL+(CW-CL-14)*(n>1?i/(n-1):.5),Y=v=>CT+(CH-CT-CB)*(1-v/mx);
+ let s=`<svg viewBox="0 0 ${CW} ${CH+16}" width="100%">`+grid(mx);
+ lab.forEach((l,i)=>{if(n<=12||i%3===0)s+=`<text x="${X(i)}" y="${CH-CB+14}" text-anchor="middle" font-size="10" fill="var(--mu)">${esc(l)}</text>`});
+ ser.forEach((e,j)=>{s+=`<polyline fill="none" stroke="${e.c}" stroke-width="2.5" points="${e.v.map((v,i)=>X(i)+","+Y(v)).join(" ")}"/>`+e.v.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="${e.c}"><title>${esc(e.n)} ${esc(lab[i])}: ${nf(v)}</title></circle>`).join("")+`<rect x="${CL+j*110}" y="${CH-2}" width="10" height="10" fill="${e.c}"/><text x="${CL+j*110+14}" y="${CH+8}" font-size="11" fill="var(--tx)">${e.n}</text>`});
+ return s+"</svg>"}
+function svgPie(it){const tot=it.reduce((a,x)=>a+x.v,0);if(!tot)return nod();let a0=-Math.PI/2,s=`<svg viewBox="0 0 560 220" width="100%"><g transform="translate(110,110)">`;
+ it.forEach((x,i)=>{const a1=a0+x.v/tot*2*Math.PI,c=COL[i%COL.length];
+  if(it.length===1)s+=`<circle r="100" fill="${c}"/>`;
+  else s+=`<path d="M0 0L${100*Math.cos(a0)} ${100*Math.sin(a0)}A100 100 0 ${a1-a0>Math.PI?1:0} 1 ${100*Math.cos(a1)} ${100*Math.sin(a1)}Z" fill="${c}" stroke="var(--card)" stroke-width="2"><title>${esc(x.n)}: ${money(x.v)}</title></path>`;a0=a1});
+ s+="</g>";it.forEach((x,i)=>{s+=`<rect x="240" y="${14+i*24}" width="12" height="12" rx="2" fill="${COL[i%COL.length]}"/><text x="260" y="${24+i*24}" font-size="12" fill="var(--tx)">${esc(x.n.slice(0,28))} · ${Math.round(x.v/tot*100)}%</text>`});return s+"</svg>"}
+function svgScatter(pt){if(!pt.length)return nod();const mxx=Math.max(1,...pt.map(p=>p.x)),mnx=Math.min(0,...pt.map(p=>p.x)),my=Math.max(1,...pt.map(p=>p.y)),X=v=>CL+(CW-CL-14)*(v-mnx)/((mxx-mnx)||1),Y=v=>CT+(CH-CT-CB)*(1-v/my);
+ let s=`<svg viewBox="0 0 ${CW} ${CH+14}" width="100%">`+grid(my);
+ for(let i=0;i<=4;i++){const v=mnx+(mxx-mnx)*i/4;s+=`<text x="${X(v)}" y="${CH-CB+14}" text-anchor="middle" font-size="10" fill="var(--mu)">${Math.round(v)}%</text>`}
+ pt.forEach(p=>{s+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="5" fill="var(--ac)" fill-opacity=".65" stroke="var(--ac)"><title>${esc(p.n)}: margen ${Math.round(p.x)}%, ${p.y} unidades</title></circle>`});
+ return s+`<text x="${CW/2}" y="${CH+10}" text-anchor="middle" font-size="11" fill="var(--mu)">Margen % (eje vertical: unidades vendidas)</text></svg>`}
+function gra(){const ref=refDate(),per=gper,sum=(L,f,v)=>L.filter(f).reduce((a,s)=>a+s[v],0);let lab,sv,su,pu;
+ if(per==="m"){const ks=[...new Set([...S.sales.map(s=>s.date.slice(0,7)),...S.prod.map(s=>s.date.slice(0,7))])].sort().slice(-12);
+  lab=ks.map(k=>k.slice(5)+"/"+k.slice(2,4));const m=k=>s=>s.date.slice(0,7)===k;
+  sv=ks.map(k=>sum(S.sales,m(k),"total"));su=ks.map(k=>sum(S.sales,m(k),"qty"));pu=ks.map(k=>sum(S.prod,m(k),"qty"))}
+ else{const ds=[...Array(30)].map((_,i)=>new Date(new Date(ref).getTime()-(29-i)*864e5).toISOString().slice(0,10));lab=ds.map(d=>d.slice(8));const m=d=>s=>s.date===d;
+  sv=ds.map(d=>sum(S.sales,m(d),"total"));su=ds.map(d=>sum(S.sales,m(d),"qty"));pu=ds.map(d=>sum(S.prod,m(d),"qty"))}
+ const R={},U={};S.sales.forEach(s=>{R[s.k]=(R[s.k]||0)+s.total;U[s.k]=(U[s.k]||0)+s.qty});
+ const arr=Object.entries(R).sort((a,b)=>b[1]-a[1]),pie=arr.slice(0,7).map(([k,v])=>({n:pl(k),v})),rest=arr.slice(7).reduce((a,x)=>a+x[1],0);if(rest>0)pie.push({n:"Otros",v:rest});
+ const pts=S.prods.filter(p=>p.price>0&&U[p.k]>0).map(p=>({x:(p.price-p.cost)/p.price*100,y:U[p.k],n:nm(p)}));
+ return `<div class="r"><b>Periodo:</b><select onchange="gper=this.value;render()"><option value="m"${per==="m"?" selected":""}>Por mes</option><option value="d"${per==="d"?" selected":""}>Por día (últimos 30 días)</option></select></div>
+ <div class="c"><h2>Ventas ($) · barras</h2>${svgBar(lab,sv,money)}</div>
+ <div class="c"><h2>Unidades vendidas vs. producidas · líneas</h2>${svgLine(lab,[{n:"Vendidas",v:su,c:COL[1]},{n:"Producidas",v:pu,c:COL[0]}])}<div class="mu">Si las vendidas superan a las producidas varios periodos seguidos, el inventario se está agotando: toca producir.</div></div>
+ <div class="c"><h2>Ventas por producto · circular</h2>${svgPie(pie)}</div>
+ <div class="c"><h2>Margen vs. unidades vendidas · dispersión</h2>${svgScatter(pts)}<div class="mu">Cada punto es un producto. Arriba a la derecha: venden mucho y dejan buen margen.</div></div>`}
+function liveChecks(){const o=[];S.prods.forEach(p=>{
+ 
+ if(p.price<=0)o.push({t:"m",k:p.k,m:`${nm(p)}: no tiene precio de venta.`});
+ else if(p.cost>p.price)o.push({t:"a",k:p.k,m:`${nm(p)}: el costo (${money(p.cost)}) es mayor que el precio (${money(p.price)}).`});
+ else if(p.cost<=0)o.push({t:"m",k:p.k,m:`${nm(p)}: no tiene costo, la utilidad no es confiable.`})});
+ S.sup.forEach(s=>{if(s.stock<0)o.push({t:"a",m:`Insumo ${s.n}: cantidad negativa.`})});return o}
+const infos=()=>S.prods.filter(p=>p.stock<0).map(p=>({k:p.k,m:`${nm(p)}: se vendieron ${-p.stock} unidades más de las que hay anotadas como producidas.`})),fixed=k=>{S.issues=(S.issues||[]).filter(x=>x.k!==k)};
+const allIssues=()=>[...(S.issues||[]),...liveChecks()],nIss=()=>(S.issues||[]).length+liveChecks().length;
+function rev(){const all=[...(S.issues||[]).map((x,i)=>({...x,i,src:1})),...liveChecks()];RV=all;const A=all.filter(x=>x.t==="a"),M=all.filter(x=>x.t!=="a"),inf=infos(),D=all.filter(x=>x.diff);
+ const row=x=>{const n=all.indexOf(x),pi=x.k?S.prods.findIndex(p=>p.k===x.k):-1,p=pi>=0?S.prods[pi]:null;
+  return `<div class="al ${x.t==="a"?"":"m"}"><div>${esc(x.m)}</div>${p?`<div class="r" style="margin:6px 0 0"><span class="mu">Precio</span><input id="rp${n}" type="number" value="${p.price}" style="width:90px"><span class="mu">Costo</span><input id="rc${n}" type="number" value="${p.cost}" style="width:90px"><span class="mu">Stock real</span><input id="rs${n}" type="number" value="${p.stock}" style="width:80px"><button class="p" onclick="saveRV(${n})">Guardar y corregir</button></div>`:""}<div class="r" style="margin:6px 0 0">${p?`<button onclick="fixRV(${n})">Editar ficha completa</button>`:""}${x.src?`<button onclick="dismissRV(${n})">Ocultar</button>`:""}</div></div>`};
+ return (all.length?`<div class="c"><h2>Revisión</h2><div class="mu">Hay <b>${A.length}</b> errores y <b>${M.length}</b> avisos. Escribe el número correcto en el mismo aviso y pulsa «Guardar y corregir»: el punto desaparece y el próximo Excel que guardes sale corregido.</div></div>`:`<div class="c"><h2>Revisión</h2><div class="mu">✓ Todo cuadra. No hay nada por corregir.</div></div>`)
+ +(D.length?`<div class="c"><h2>¿Por qué sale diferencia si mi Excel está bien?</h2><div class="mu">Tus ventas y tu producción pueden estar bien anotadas. Lo que falla son las <b>fórmulas que unen las hojas</b>: sobre todo desde mayo, los productos de cada hoja de mes no están en la misma fila que en la hoja TOTAL, y Excel suma por fila, así que a veces suma ventas de productos distintos. El sistema suma por nombre del producto, por eso sus números pueden diferir. Lo más seguro es comparar con tu conteo físico.</div><div class="r" style="margin-top:8px"><button class="p" onclick="acceptDiff()">Usar los números del sistema en las ${D.length} diferencias</button></div></div>`:"")
+ +(A.length?`<div class="c"><h2>Errores</h2>${A.slice(0,120).map(row).join("")}${A.length>120?`<div class="mu">y ${A.length-120} más…</div>`:""}</div>`:"")
+ +(M.length?`<div class="c"><h2>Avisos</h2>${M.slice(0,120).map(row).join("")}${M.length>120?`<div class="mu">y ${M.length-120} más…</div>`:""}</div>`:"")
+ +(inf.length?`<div class="c"><h2>Para tu información</h2><div class="mu">Estos productos se vendieron más de lo que hay anotado como producido. No es un error: normalmente falta anotar producción. Al registrarla desaparece de aquí.</div>${inf.slice(0,60).map(x=>`<div class="al i">${esc(x.m)}</div>`).join("")}${inf.length>60?`<div class="mu">y ${inf.length-60} más…</div>`:""}<div class="r" style="margin-top:8px"><button onclick="tab='pro';render()">Registrar producción</button></div></div>`:"")}
+function saveRV(n){const x=RV[n],p=P(x.k);if(!p)return;p.price=+$("#rp"+n).value||0;p.cost=+$("#rc"+n).value||0;p.stock=+$("#rs"+n).value||0;fixed(x.k);save();syncInv();toast("✓ Corregido");render()}
+function acceptDiff(){const n=(S.issues||[]).filter(x=>x.diff).length;askC(`Se dejarán los números calculados por el sistema en ${n} productos y esos avisos desaparecen. ¿Continuar?`,()=>{S.issues=S.issues.filter(x=>!x.diff);save();toast("✓ Listo");render()},"Continuar")}
+function fixRV(n){const x=RV[n],i=S.prods.findIndex(p=>p.k===x.k);if(i>=0){ed="p:"+i;tab="prods";render();scrollTo(0,0)}}
+function dismissRV(n){S.issues.splice(RV[n].i,1);save();render()}
+function autoCard(){const g=!!S.cfg.gs,m=!!S.cfg.hook,ph=!!S.cfg.phone,row=(on,t,d)=>`<div class="r"><span class="tag ${on?"":"m"}">${on?"Activa":"Pendiente"}</span><b>${t}</b><span class="mu">${d}</span></div>`;
+ return `<div class="c"><h2>Automatizaciones</h2>`+row(true,"Venta → inventario","Cada venta descuenta el stock al instante.")+row(true,"Producción → inventario","Cada producción suma al inventario.")+row(true,"Alertas y qué producir","Se recalculan solas con cada registro ("+alerts().length+" alertas hoy).")
+ +row(g,"Guardado en Google Sheets",g?"Cada registro se envía solo a tu hoja."+(S.cfg.sync?" Último envío: "+S.cfg.sync:""):"Falta pegar la URL en Conexiones.")
+ +row(m,"Make / Airtable / Zapier",m?"Cada evento se envía al webhook.":"Opcional: pega el webhook en Conexiones.")+row(ph,"Alertas por WhatsApp",ph?"Mensaje listo para enviar desde Conexiones.":"Falta el número en Conexiones.")+`</div>`}
+function tables(){const pn=k=>P(k)||{n:k,sz:""};return{Productos:S.prods.map(p=>({Producto:p.n,"Tamaño":p.sz,Precio:p.price,Costo:p.cost,Stock:p.stock,"Mínimo":p.min})),Ventas:S.sales.map(x=>({Fecha:x.date,Canal:x.ch,Producto:pn(x.k).n,"Tamaño":pn(x.k).sz,Cantidad:x.qty,Total:x.total})),"Producción":S.prod.map(x=>({Fecha:x.date,Producto:pn(x.k).n,"Tamaño":pn(x.k).sz,Unidades:x.qty})),Insumos:S.sup.map(x=>({"Ítem":x.n,Detalle:x.sz,Tipo:x.type,Cantidad:x.stock,Costo:x.cost,"Mínimo":x.min}))}}
+function shareCfg(){if(location.protocol==="file:"){toast("Primero publica la página en GitHub Pages o Vercel, ábrela desde su enlace y luego copia el enlace.");return}const c={};if(S.cfg.hook)c.hook=S.cfg.hook;if(S.cfg.gs)c.gs=S.cfg.gs;if(S.cfg.phone)c.phone=S.cfg.phone;
+ const u=location.origin+location.pathname+"?cfg="+encodeURIComponent(btoa(JSON.stringify(c))),a=document.createElement("textarea");a.value=u;document.body.appendChild(a);a.select();
+ try{document.execCommand("copy");toast("✓ Enlace copiado. Quien lo abra queda con la conexión ya configurada.")}catch(e){prompt("Copia este enlace:",u)}a.remove()}
+const syncInv=()=>{const t=tables();hook("inventario",{Productos:t.Productos,Insumos:t.Insumos})};
+async function loadGS(){const s=$("#hs")||{};if(!S.cfg.gs){s.textContent="Pega primero la URL de Google Sheets.";return}
+ try{const o=await(await fetch(S.cfg.gs)).json();if(!o.Productos)throw 0;if(S.prods.length&&!confirm("Esto reemplaza los datos de este navegador con los de Google Sheets. ¿Continuar?"))return;S=restore(null,o);save();render()}
+ catch(e){s.textContent="No se pudo leer Google Sheets. Revisa la URL y que el acceso sea «Cualquier persona»."}}
+function planCard(){const ref=refDate(),s90={};S.sales.forEach(s=>{if(dd(s.date,ref)<=90)s90[s.k]=(s90[s.k]||0)+s.qty});
+ const L=S.prods.filter(p=>p.stock<=p.min&&s90[p.k]>0).map(p=>{const m=Math.ceil(s90[p.k]/3);return{p,m,u:Math.max(m-p.stock,p.min+1-p.stock)}}).sort((a,b)=>b.u-a.u).slice(0,12);
+ return `<div class="c"><h2>Qué producir ahora</h2>${L.length?`<div class="t"><table><tr><th>Producto</th><th>En existencia</th><th>Vende al mes (aprox.)</th><th>Producir</th></tr>${L.map(x=>`<tr><td>${esc(nm(x.p))}</td><td>${x.p.stock}</td><td>${x.m}</td><td><b>${x.u}</b></td></tr>`).join("")}</table></div>`:'<span class="mu">Nada urgente: lo que se vende tiene existencia suficiente.</span>'}<div class="mu">Calculado con las ventas de los últimos 3 meses.</div></div>`}
+const sv0=()=>{const e=$("#sv");if(e)e.textContent=S.cfg.dirty?"⚠ Hay cambios sin guardar en Excel"+(S.cfg.last?" (último guardado: "+S.cfg.last+")":""):S.cfg.last?"✓ Excel al día (guardado el "+S.cfg.last+")":"Aún no has guardado una copia en Excel"};
+const DEFAULT_GS=""; // Consultor: pega aquí la URL de Apps Script y la dueña no tendrá que configurar nada
+if(!S.cfg.gs&&DEFAULT_GS)S.cfg.gs=DEFAULT_GS;
+try{const c=new URLSearchParams(location.search).get("cfg");if(c){Object.assign(S.cfg,JSON.parse(atob(c)));save();history.replaceState(null,"",location.pathname)}}catch(e){}
+sv0();render();
+if(S.cfg.gs&&!S.prods.length)loadGS();
+</script></body></html>
